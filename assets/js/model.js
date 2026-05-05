@@ -6,53 +6,12 @@
 
 const TabernitaModel = (() => {
 
-  // --- PARTIDOS DE LA JORNADA ---
-  const matches = [
-    {
-      id: 1,
-      homeTeam: "Atlético de Madrid",
-      awayTeam: "Real Madrid",
-      league: "LaLiga EA Sports",
-      date: "Hoy",
-      time: "21:00",
-      channel: "DAZN",
-      isLive: false,
-      isFeatured: true
-    },
-    {
-      id: 2,
-      homeTeam: "Barcelona",
-      awayTeam: "Sevilla",
-      league: "LaLiga EA Sports",
-      date: "Hoy",
-      time: "18:30",
-      channel: "DAZN",
-      isLive: true,
-      isFeatured: false
-    },
-    {
-      id: 3,
-      homeTeam: "Real Madrid",
-      awayTeam: "Bayern Munich",
-      league: "Champions League",
-      date: "Hoy",
-      time: "21:00",
-      channel: "Movistar+",
-      isLive: false,
-      isFeatured: false
-    },
-    {
-      id: 4,
-      homeTeam: "Atlético de Madrid",
-      awayTeam: "Inter de Milan",
-      league: "Champions League",
-      date: "Hoy",
-      time: "21:00",
-      channel: "Movistar+",
-      isLive: false,
-      isFeatured: false
-    }
-  ];
+  // Usamos el endpoint gviz que tiene mejor soporte CORS y funciona tanto en file:// como en servidor
+  const SHEET_ID = '1vlmT1bc3sTbp-7FMQTF0UXf4J4Z2PheQVSfHu9ZKHCg';
+  const GVIZ_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json`;
+
+  // --- PARTIDOS DE LA JORNADA (Sheet fallback) ---
+  let matches = [];
 
   // --- EVENTOS DEL CALENDARIO ---
   const events = [
@@ -118,13 +77,57 @@ const TabernitaModel = (() => {
     }
   ];
 
+  // --- FETCH DATA FROM GOOGLE SHEETS (via gviz JSON) ---
+  const fetchMatchesFromSheet = async () => {
+    try {
+      const response = await fetch(GVIZ_URL);
+      if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+
+      const rawText = await response.text();
+
+      // El endpoint gviz devuelve JSONP con un wrapper que hay que eliminar:
+      // "/*O_o*/\ngoogle.visualization.Query.setResponse({...});"
+      const jsonText = rawText
+        .replace(/^[^{]*/, '')   // elimina todo antes del primer {
+        .replace(/;?\s*$/, '');  // elimina el ; final
+
+      const json = JSON.parse(jsonText);
+      const rows = json.table.rows;
+
+      // La primera fila (rows[0]) contiene los títulos: FECHA, HORA, LOCAL, VISITANTE
+      // Se omite con slice(1) — solo se procesan las filas de datos
+      matches = rows
+        .slice(1)
+        .map((row, index) => {
+          const get = (i) => (row.c[i] && row.c[i].v !== null ? String(row.c[i].v).trim() : '');
+          const fecha     = get(0);
+          const hora      = get(1);
+          const local     = get(2);
+          const visitante = get(3);
+
+          // Ignorar filas donde no hay equipo local ni visitante
+          if (!local && !visitante) return null;
+
+          return { id: index, fecha, hora, local, visitante };
+        })
+        .filter(Boolean);
+
+      return matches;
+    } catch (error) {
+      console.error('Error al cargar partidos desde Google Sheets:', error);
+      return [];
+    }
+  };
+
   // --- GETTERS ---
   const getAllMatches = () => matches;
   const getAllEvents = () => events;
 
   return {
+    fetchMatchesFromSheet,
     getAllMatches,
     getAllEvents
   };
 
 })();
+

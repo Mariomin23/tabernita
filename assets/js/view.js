@@ -8,32 +8,26 @@ const TabernitaView = (() => {
 
   // --- MATCH CARD TEMPLATE ---
   const renderMatchCard = (match) => {
-    const liveTag = match.isLive
-      ? `<div class="mb-1"><span class="match-live">● En Vivo</span></div>`
-      : '';
-
-    const featuredClass = match.isFeatured ? 'border-danger border-opacity-50' : '';
-
     return `
       <div class="col-12 col-md-6 reveal">
-        <div class="match-card ${featuredClass}" role="article" aria-label="Partido: ${match.homeTeam} vs ${match.awayTeam}">
+        <div class="match-card" role="article" aria-label="Partido: ${match.local} vs ${match.visitante}">
           <div class="match-teams">
-            ${liveTag}
-            <strong>${match.homeTeam}</strong>
+            <strong>${match.local}</strong>
             <div class="match-vs">vs</div>
-            <strong>${match.awayTeam}</strong>
+            <strong>${match.visitante}</strong>
           </div>
           <div class="match-info">
-            <div class="match-league">${match.league}</div>
-            <div class="match-time">${match.time}</div>
+            <div class="match-league"><strong class="text-white">${match.fecha}</strong></div>
+            <div class="match-time">${match.hora}</div>
             <div class="match-channel">
-              <i class="bi bi-tv me-1"></i>${match.channel}
+              <i class="bi bi-broadcast me-1"></i>En La Tabernita
             </div>
           </div>
         </div>
       </div>
     `;
   };
+
 
   // --- EVENT CARD TEMPLATE ---
   const renderEventCard = (event) => {
