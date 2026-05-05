@@ -44,16 +44,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         observeReveals();
       }
     } catch (error) {
-      console.error("Error al cargar los partidos:", error);
+      console.error("❌ Error al cargar los partidos:", error.message);
       if (matchesContainer) {
         matchesContainer.innerHTML = `
           <div class="col-12 text-center py-4">
-            <p class="text-danger small"><i class="bi bi-exclamation-triangle me-2"></i>Error al cargar los partidos. Comprueba la conexión.</p>
+            <p class="text-danger small"><i class="bi bi-exclamation-triangle me-2"></i>${error.message}</p>
           </div>`;
       }
     }
   }
-
 
   // 3. Cargar Eventos
   if (typeof TabernitaModel !== 'undefined' && typeof TabernitaView !== 'undefined') {

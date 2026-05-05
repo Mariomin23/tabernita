@@ -9,19 +9,19 @@ const TabernitaView = (() => {
   // --- MATCH CARD TEMPLATE ---
   const renderMatchCard = (match) => {
     return `
-      <div class="col-12 col-md-6 reveal">
+      <div class="col-12 reveal">
         <div class="match-card" role="article" aria-label="Partido: ${match.local} vs ${match.visitante}">
-          <div class="match-teams">
-            <strong>${match.local}</strong>
-            <div class="match-vs">vs</div>
-            <strong>${match.visitante}</strong>
-          </div>
           <div class="match-info">
             <div class="match-league"><strong class="text-white">${match.fecha}</strong></div>
             <div class="match-time">${match.hora}</div>
             <div class="match-channel">
               <i class="bi bi-broadcast me-1"></i>En La Tabernita
             </div>
+          </div>
+          <div class="match-teams">
+            <strong>${match.local}</strong>
+            <div class="match-vs">vs</div>
+            <strong>${match.visitante}</strong>
           </div>
         </div>
       </div>

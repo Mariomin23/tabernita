@@ -1,19 +1,17 @@
 /**
  * MODEL — La Tabernita
- * Contiene los datos de la aplicación (partidos, eventos).
- * En una implementación real, estos datos vendrían de una API/backend.
+ * Carga los partidos de la jornada desde Google Sheets via JSONP.
+ * JSONP funciona desde file:// y desde servidor sin problemas de CORS.
  */
 
 const TabernitaModel = (() => {
 
-  // Usamos el endpoint gviz que tiene mejor soporte CORS y funciona tanto en file:// como en servidor
   const SHEET_ID = '1vlmT1bc3sTbp-7FMQTF0UXf4J4Z2PheQVSfHu9ZKHCg';
-  const GVIZ_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json`;
 
-  // --- PARTIDOS DE LA JORNADA (Sheet fallback) ---
+  // --- PARTIDOS (se rellenan desde Google Sheets) ---
   let matches = [];
 
-  // --- EVENTOS DEL CALENDARIO ---
+  // --- EVENTOS DEL CALENDARIO (datos estáticos) ---
   const events = [
     {
       id: 1,
@@ -77,51 +75,86 @@ const TabernitaModel = (() => {
     }
   ];
 
-  // --- FETCH DATA FROM GOOGLE SHEETS (via gviz JSON) ---
-  const fetchMatchesFromSheet = async () => {
-    try {
-      const response = await fetch(GVIZ_URL);
-      if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+  /**
+   * Carga los partidos desde Google Sheets usando JSONP.
+   * Al usar un <script> dinámico no hay restricciones CORS,
+   * funciona tanto desde file:// como desde un servidor web.
+   *
+   * Estructura de la hoja:
+   *   Fila 1: FECHA | HORA | LOCAL | VISITANTE  (cabeceras — se ignoran)
+   *   Fila 2+: cada fila es un partido
+   */
+  const fetchMatchesFromSheet = () => {
+    return new Promise((resolve, reject) => {
 
-      const rawText = await response.text();
+      const callbackName = '__tabernita_gviz__';
 
-      // El endpoint gviz devuelve JSONP con un wrapper que hay que eliminar:
-      // "/*O_o*/\ngoogle.visualization.Query.setResponse({...});"
-      const jsonText = rawText
-        .replace(/^[^{]*/, '')   // elimina todo antes del primer {
-        .replace(/;?\s*$/, '');  // elimina el ; final
+      // Limpieza del script y del callback global
+      const cleanup = () => {
+        delete window[callbackName];
+        const s = document.getElementById('gviz-jsonp');
+        if (s) s.remove();
+      };
 
-      const json = JSON.parse(jsonText);
-      const rows = json.table.rows;
+      // Timeout: si Google no responde en 8s, fallamos limpiamente
+      const timer = setTimeout(() => {
+        cleanup();
+        reject(new Error('Timeout al conectar con Google Sheets'));
+      }, 8000);
 
-      // La primera fila (rows[0]) contiene los títulos: FECHA, HORA, LOCAL, VISITANTE
-      // Se omite con slice(1) — solo se procesan las filas de datos
-      matches = rows
-        .slice(1)
-        .map((row, index) => {
-          const get = (i) => (row.c[i] && row.c[i].v !== null ? String(row.c[i].v).trim() : '');
-          const fecha     = get(0);
-          const hora      = get(1);
-          const local     = get(2);
-          const visitante = get(3);
+      // Callback global que gviz invocará con los datos
+      window[callbackName] = function(data) {
+        clearTimeout(timer);
+        cleanup();
 
-          // Ignorar filas donde no hay equipo local ni visitante
-          if (!local && !visitante) return null;
+        try {
+          const rows = data.table.rows;
 
-          return { id: index, fecha, hora, local, visitante };
-        })
-        .filter(Boolean);
+          // rows[0] = fila 1 de la hoja = cabeceras (FECHA, HORA, LOCAL, VISITANTE) → se omite
+          // rows[1+] = partidos reales
+          matches = rows
+            .slice(1)
+            .map((row, i) => {
+              // Extrae el valor de texto de una celda, devuelve '' si está vacía
+              const val = (n) => (row.c && row.c[n] && row.c[n].v != null)
+                ? String(row.c[n].v).trim()
+                : '';
 
-      return matches;
-    } catch (error) {
-      console.error('Error al cargar partidos desde Google Sheets:', error);
-      return [];
-    }
+              const fecha     = val(0); // Columna A
+              const hora      = val(1); // Columna B
+              const local     = val(2); // Columna C
+              const visitante = val(3); // Columna D
+
+              // Ignorar filas completamente vacías
+              if (!local && !visitante) return null;
+
+              return { id: i, fecha, hora, local, visitante };
+            })
+            .filter(Boolean);
+
+          resolve(matches);
+        } catch (e) {
+          reject(new Error('Error procesando datos de Google Sheets: ' + e.message));
+        }
+      };
+
+      // Inyectar el script JSONP — gviz llamará a window[callbackName](data)
+      const script = document.createElement('script');
+      script.id   = 'gviz-jsonp';
+      script.src  = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json;responseHandler:${callbackName}`;
+      script.onerror = () => {
+        clearTimeout(timer);
+        cleanup();
+        reject(new Error('No se pudo cargar Google Sheets (sin conexión o hoja privada)'));
+      };
+
+      document.head.appendChild(script);
+    });
   };
 
   // --- GETTERS ---
   const getAllMatches = () => matches;
-  const getAllEvents = () => events;
+  const getAllEvents  = () => events;
 
   return {
     fetchMatchesFromSheet,
@@ -130,4 +163,3 @@ const TabernitaModel = (() => {
   };
 
 })();
-

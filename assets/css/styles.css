@@ -261,7 +261,7 @@ h1, h2, h3, h4, h5 {
   color: var(--color-text-muted);
   margin: 0.2rem 0;
 }
-.match-info { text-align: right; }
+.match-info { text-align: left; }
 .match-league {
   font-size: 0.72rem;
   color: var(--color-text-muted);
